@@ -1,6 +1,6 @@
 "use client";
-import { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 interface Booking {
@@ -41,38 +41,21 @@ function formatDate(dateStr: string, tz: string) {
 
 export default function BookingsPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const [email, setEmail] = useState(searchParams.get("email") || "");
+  const [email, setEmail] = useState("");
   const [bookingRef, setBookingRef] = useState("");
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [cancellingRef, setCancellingRef] = useState("");
 
-  // Auto-search if email is in URL params
-  useEffect(() => {
-    const urlEmail = searchParams.get("email");
-    if (urlEmail) {
-      setEmail(urlEmail);
-      searchByEmail(urlEmail);
-    }
-  }, [searchParams]);
-
-  const searchByEmail = async (searchEmail: string) => {
-    if (!searchEmail) return;
+  const handleEmailSearch = async () => {
+    if (!email) return;
     setLoading(true);
     setSearched(true);
-    const res = await fetch(`/api/bookings?email=${encodeURIComponent(searchEmail)}`);
+    const res = await fetch(`/api/bookings?email=${encodeURIComponent(email)}`);
     const data = await res.json();
     setBookings(data);
     setLoading(false);
-  };
-
-  const handleEmailSearch = async () => {
-    if (!email) return;
-    // Update URL so back navigation preserves the search
-    router.push(`/bookings?email=${encodeURIComponent(email)}`);
-    await searchByEmail(email);
   };
 
   const handleRefSearch = () => {
@@ -104,7 +87,6 @@ export default function BookingsPage() {
       <div className="space-y-8">
         <h1 className="text-3xl font-bold text-gray-800">My Bookings</h1>
 
-        {/* Booking reference lookup */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <label className="block text-sm font-medium text-gray-600 mb-1">
             Look up a booking by reference
@@ -129,7 +111,6 @@ export default function BookingsPage() {
           </div>
         </div>
 
-        {/* Email search */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <label className="block text-sm font-medium text-gray-600 mb-1">
             Or find all bookings by email
@@ -153,7 +134,6 @@ export default function BookingsPage() {
           </div>
         </div>
 
-        {/* Results */}
         {searched && !loading && (
             <div className="space-y-4">
               {bookings.length === 0 ? (
