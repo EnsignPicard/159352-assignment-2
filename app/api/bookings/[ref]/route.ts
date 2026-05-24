@@ -32,7 +32,7 @@ export async function DELETE(
   // Remove booking ID from schedule's bookings array
   await mydb.collection("schedules").updateOne(
     { _id: booking.scheduleId },
-    { $pull: { bookings: booking._id } }
+      { $pull: { bookings: booking._id } as any }
   );
 
   // Delete the booking document
