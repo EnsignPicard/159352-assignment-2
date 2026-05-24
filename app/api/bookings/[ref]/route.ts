@@ -1,14 +1,17 @@
 import { ObjectId } from "mongodb";
 import { connectDB } from "@/lib/mongodb";
 
+interface Passenger {
+  _id: ObjectId;
+  title: string;
+  firstname: string;
+  lastname: string;
+  email: string;
+}
+
 interface BookingEntry {
   bookingRef: string;
-  passenger: {
-    title: string;
-    firstname: string;
-    lastname: string;
-    email: string;
-  };
+  passengerId: ObjectId;
   createdAt: Date;
 }
 
@@ -46,7 +49,6 @@ export async function GET(
   const { ref } = await params;
   const mydb = await connectDB();
 
-  // Find the schedule containing this booking reference
   const schedule = await mydb.collection<Schedule>("schedules").findOne({
     "bookings.bookingRef": ref,
   });
@@ -60,11 +62,14 @@ export async function GET(
     return Response.json({ error: "Booking not found" }, { status: 404 });
   }
 
+  const passenger = await mydb.collection<Passenger>("passengers").findOne({
+    _id: booking.passengerId,
+  });
+
   const routeDoc = await mydb.collection<Route>("routes").findOne({
     orig: schedule.orig,
     dest: schedule.dest,
   });
-
   const origDoc = await mydb.collection<Airport>("airports").findOne({ code: schedule.orig });
   const destDoc = await mydb.collection<Airport>("airports").findOne({ code: schedule.dest });
 
@@ -81,7 +86,12 @@ export async function GET(
     destName: destDoc?.name ?? schedule.dest,
     origTz: origDoc?.tz ?? "Pacific/Auckland",
     destTz: destDoc?.tz ?? "Pacific/Auckland",
-    passenger: booking.passenger,
+    passenger: {
+      title: passenger?.title ?? "",
+      firstname: passenger?.firstname ?? "",
+      lastname: passenger?.lastname ?? "",
+      email: passenger?.email ?? "",
+    },
     createdAt: booking.createdAt,
   };
 
@@ -95,7 +105,6 @@ export async function DELETE(
   const { ref } = await params;
   const mydb = await connectDB();
 
-  // Find the schedule containing this booking
   const schedule = await mydb.collection<Schedule>("schedules").findOne({
     "bookings.bookingRef": ref,
   });
@@ -104,7 +113,6 @@ export async function DELETE(
     return Response.json({ error: "Booking not found" }, { status: 404 });
   }
 
-  // Pull the booking from the embedded array
   await mydb.collection<Schedule>("schedules").updateOne(
       { _id: schedule._id },
       { $pull: { bookings: { bookingRef: ref } } }

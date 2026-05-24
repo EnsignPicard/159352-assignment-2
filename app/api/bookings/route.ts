@@ -1,14 +1,18 @@
 import { ObjectId } from "mongodb";
 import { connectDB } from "@/lib/mongodb";
 
+interface Passenger {
+  _id: ObjectId;
+  title: string;
+  firstname: string;
+  lastname: string;
+  gender: string;
+  email: string;
+}
+
 interface BookingEntry {
   bookingRef: string;
-  passenger: {
-    title: string;
-    firstname: string;
-    lastname: string;
-    email: string;
-  };
+  passengerId: ObjectId;
   createdAt: Date;
 }
 
@@ -57,7 +61,24 @@ export async function POST(request: Request) {
   }
 
   const mydb = await connectDB();
+  const emailLower = email.toLowerCase();
 
+  // Find or create the passenger in the passengers collection
+  let passenger = await mydb.collection<Passenger>("passengers").findOne({ email: emailLower });
+
+  if (!passenger) {
+    const newPassenger = {
+      title: title || "",
+      firstname: firstname,
+      lastname: lastname,
+      gender: "",
+      email: emailLower,
+    };
+    const result = await mydb.collection("passengers").insertOne(newPassenger);
+    passenger = { _id: result.insertedId, ...newPassenger };
+  }
+
+  // Find the schedule
   const schedule = await mydb.collection<Schedule>("schedules").findOne({
     _id: new ObjectId(scheduleId),
   });
@@ -66,33 +87,29 @@ export async function POST(request: Request) {
     return Response.json({ error: "Flight not found" }, { status: 404 });
   }
 
+  // Check seat availability
   if (schedule.bookings.length >= schedule.seats) {
     return Response.json({ error: "No seats available on this flight" }, { status: 409 });
   }
 
-  const routeDoc = await mydb.collection<Route>("routes").findOne({
-    orig: schedule.orig,
-    dest: schedule.dest,
-  });
-
-  const origDoc = await mydb.collection<Airport>("airports").findOne({ code: schedule.orig });
-  const destDoc = await mydb.collection<Airport>("airports").findOne({ code: schedule.dest });
-
-  // Generate unique booking reference across all schedules
+  // Generate unique booking reference
   let bookingRef = generateBookingRef();
   while (await mydb.collection<Schedule>("schedules").findOne({ "bookings.bookingRef": bookingRef })) {
     bookingRef = generateBookingRef();
   }
 
-  // Embed booking within the schedule document
+  // Get route and airport details for response
+  const routeDoc = await mydb.collection<Route>("routes").findOne({
+    orig: schedule.orig,
+    dest: schedule.dest,
+  });
+  const origDoc = await mydb.collection<Airport>("airports").findOne({ code: schedule.orig });
+  const destDoc = await mydb.collection<Airport>("airports").findOne({ code: schedule.dest });
+
+  // Embed booking in the schedule
   const bookingEntry: BookingEntry = {
     bookingRef: bookingRef,
-    passenger: {
-      title: title || "",
-      firstname: firstname,
-      lastname: lastname,
-      email: email.toLowerCase(),
-    },
+    passengerId: passenger._id,
     createdAt: new Date(),
   };
 
@@ -101,7 +118,7 @@ export async function POST(request: Request) {
       { $push: { bookings: bookingEntry } }
   );
 
-  // Return full booking details for the confirmation page
+  // Return full details for confirmation page
   const response = {
     bookingRef: bookingRef,
     flightNo: schedule.flightNo,
@@ -115,7 +132,12 @@ export async function POST(request: Request) {
     destName: destDoc?.name ?? schedule.dest,
     origTz: origDoc?.tz ?? "Pacific/Auckland",
     destTz: destDoc?.tz ?? "Pacific/Auckland",
-    passenger: bookingEntry.passenger,
+    passenger: {
+      title: passenger.title,
+      firstname: passenger.firstname,
+      lastname: passenger.lastname,
+      email: passenger.email,
+    },
     createdAt: bookingEntry.createdAt,
   };
 
@@ -133,12 +155,18 @@ export async function GET(request: Request) {
   const mydb = await connectDB();
   const emailLower = email.toLowerCase();
 
-  // Find all schedules that have a booking with this email
+  // Find the passenger by email
+  const passenger = await mydb.collection<Passenger>("passengers").findOne({ email: emailLower });
+
+  if (!passenger) {
+    return Response.json([]);
+  }
+
+  // Find all schedules with bookings for this passenger
   const schedules = await mydb.collection<Schedule>("schedules").find({
-    "bookings.passenger.email": emailLower,
+    "bookings.passengerId": passenger._id,
   }).toArray();
 
-  // Extract matching bookings and combine with schedule/route/airport details
   const results = [];
 
   for (const schedule of schedules) {
@@ -150,7 +178,7 @@ export async function GET(request: Request) {
     const destDoc = await mydb.collection<Airport>("airports").findOne({ code: schedule.dest });
 
     for (const booking of schedule.bookings) {
-      if (booking.passenger.email === emailLower) {
+      if (booking.passengerId.equals(passenger._id)) {
         results.push({
           _id: schedule._id,
           bookingRef: booking.bookingRef,
@@ -165,7 +193,12 @@ export async function GET(request: Request) {
           destName: destDoc?.name ?? schedule.dest,
           origTz: origDoc?.tz ?? "Pacific/Auckland",
           destTz: destDoc?.tz ?? "Pacific/Auckland",
-          passenger: booking.passenger,
+          passenger: {
+            title: passenger.title,
+            firstname: passenger.firstname,
+            lastname: passenger.lastname,
+            email: passenger.email,
+          },
           createdAt: booking.createdAt,
         });
       }
