@@ -141,12 +141,6 @@ export default function BookingPage() {
           >
             Book Another Flight
           </Link>
-          <Link
-              href="/bookings"
-              className="border border-gray-300 text-gray-700 font-semibold px-6 py-2 rounded-lg hover:bg-gray-100 transition-colors"
-          >
-            My Bookings
-          </Link>
           <button
               onClick={handleCancel}
               disabled={cancelling}
