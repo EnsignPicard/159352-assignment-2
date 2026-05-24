@@ -46,6 +46,7 @@ export default function BookingPage() {
   const [booking, setBooking] = useState<Booking | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [cancelling, setCancelling] = useState(false);
 
   useEffect(() => {
     fetch(`/api/bookings/${ref}`)
@@ -58,16 +59,28 @@ export default function BookingPage() {
         .finally(() => setLoading(false));
   }, [ref]);
 
+  const handleCancel = async () => {
+    if (!confirm(`Cancel booking ${ref}? This cannot be undone.`)) return;
+    setCancelling(true);
+    const res = await fetch(`/api/bookings/${ref}`, { method: "DELETE" });
+    if (res.ok) {
+      router.push("/bookings");
+    } else {
+      alert("Failed to cancel booking");
+      setCancelling(false);
+    }
+  };
+
   if (loading) return <p className="text-gray-500">Loading booking...</p>;
   if (error) {
     return (
         <div className="space-y-4">
           <p className="text-red-500">{error}</p>
           <button
-              onClick={() => router.push("/bookings")}
+              onClick={() => router.back()}
               className="text-sky-700 font-semibold hover:underline"
           >
-            ← Back to My Bookings
+            ← Go Back
           </button>
         </div>
     );
@@ -81,10 +94,10 @@ export default function BookingPage() {
   return (
       <div className="space-y-6">
         <button
-            onClick={() => router.push("/bookings")}
+            onClick={() => router.back()}
             className="text-sky-700 font-semibold hover:underline"
         >
-          ← Back to My Bookings
+          ← Go Back
         </button>
 
         <div className="flex items-center gap-3">
@@ -95,7 +108,6 @@ export default function BookingPage() {
         </div>
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-6">
-          {/* Booking reference */}
           <div className="text-center border-b border-gray-100 pb-6">
             <p className="text-sm text-gray-500 mb-1">Booking Reference</p>
             <p className="text-4xl font-mono font-bold text-sky-700 tracking-widest">
@@ -103,7 +115,6 @@ export default function BookingPage() {
             </p>
           </div>
 
-          {/* Flight details */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <h3 className="text-sm font-medium text-gray-500 mb-2">Flight</h3>
@@ -117,7 +128,6 @@ export default function BookingPage() {
             </div>
           </div>
 
-          {/* Route and times */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-gray-100 pt-6">
             <div>
               <h3 className="text-sm font-medium text-gray-500 mb-2">Departure</h3>
@@ -137,7 +147,6 @@ export default function BookingPage() {
             </div>
           </div>
 
-          {/* Price */}
           <div className="border-t border-gray-100 pt-6 flex justify-between items-center">
             <span className="text-gray-600 font-medium">Total Price</span>
             <span className="text-3xl font-bold text-sky-700">${booking.price} NZD</span>
@@ -151,12 +160,13 @@ export default function BookingPage() {
           >
             Book Another Flight
           </Link>
-          <Link
-              href="/bookings"
-              className="border border-gray-300 text-gray-700 font-semibold px-6 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+          <button
+              onClick={handleCancel}
+              disabled={cancelling}
+              className="border border-red-300 text-red-600 font-semibold px-6 py-2 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
           >
-            View My Bookings
-          </Link>
+            {cancelling ? "Cancelling..." : "Cancel Booking"}
+          </button>
         </div>
       </div>
   );
