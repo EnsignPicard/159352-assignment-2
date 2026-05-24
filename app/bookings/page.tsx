@@ -1,6 +1,6 @@
 "use client";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 interface Booking {
@@ -41,28 +41,42 @@ function formatDate(dateStr: string, tz: string) {
 
 export default function BookingsPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const searchParams = useSearchParams();
+  const [email, setEmail] = useState(searchParams.get("email") || "");
   const [bookingRef, setBookingRef] = useState("");
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [cancellingRef, setCancellingRef] = useState("");
-  const [refError, setRefError] = useState("");
 
-  const handleEmailSearch = async () => {
-    if (!email) return;
+  // Auto-search if email is in URL params
+  useEffect(() => {
+    const urlEmail = searchParams.get("email");
+    if (urlEmail) {
+      setEmail(urlEmail);
+      searchByEmail(urlEmail);
+    }
+  }, [searchParams]);
+
+  const searchByEmail = async (searchEmail: string) => {
+    if (!searchEmail) return;
     setLoading(true);
     setSearched(true);
-    setRefError("");
-    const res = await fetch(`/api/bookings?email=${encodeURIComponent(email)}`);
+    const res = await fetch(`/api/bookings?email=${encodeURIComponent(searchEmail)}`);
     const data = await res.json();
     setBookings(data);
     setLoading(false);
   };
 
-  const handleRefSearch = async () => {
+  const handleEmailSearch = async () => {
+    if (!email) return;
+    // Update URL so back navigation preserves the search
+    router.push(`/bookings?email=${encodeURIComponent(email)}`);
+    await searchByEmail(email);
+  };
+
+  const handleRefSearch = () => {
     if (!bookingRef) return;
-    setRefError("");
     router.push(`/booking/${bookingRef.toUpperCase()}`);
   };
 
@@ -113,7 +127,6 @@ export default function BookingsPage() {
               Look Up
             </button>
           </div>
-          {refError && <p className="text-red-500 text-sm mt-2">{refError}</p>}
         </div>
 
         {/* Email search */}
