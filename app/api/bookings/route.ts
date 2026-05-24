@@ -1,6 +1,44 @@
 import { ObjectId } from "mongodb";
 import { connectDB } from "@/lib/mongodb";
 
+interface BookingEntry {
+  bookingRef: string;
+  passenger: {
+    title: string;
+    firstname: string;
+    lastname: string;
+    email: string;
+  };
+  createdAt: Date;
+}
+
+interface Schedule {
+  _id: ObjectId;
+  flightNo: string;
+  orig: string;
+  dest: string;
+  depDate: Date;
+  arrDate: Date;
+  seats: number;
+  bookings: BookingEntry[];
+}
+
+interface Route {
+  _id: ObjectId;
+  orig: string;
+  dest: string;
+  aircraft: string;
+  price: number;
+}
+
+interface Airport {
+  _id: ObjectId;
+  name: string;
+  code: string;
+  region: string;
+  tz: string;
+}
+
 function generateBookingRef(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let ref = "";
@@ -20,8 +58,7 @@ export async function POST(request: Request) {
 
   const mydb = await connectDB();
 
-  // Find the schedule
-  const schedule = await mydb.collection("schedules").findOne({
+  const schedule = await mydb.collection<Schedule>("schedules").findOne({
     _id: new ObjectId(scheduleId),
   });
 
@@ -29,31 +66,44 @@ export async function POST(request: Request) {
     return Response.json({ error: "Flight not found" }, { status: 404 });
   }
 
-  // Check seat availability
   if (schedule.bookings.length >= schedule.seats) {
     return Response.json({ error: "No seats available on this flight" }, { status: 409 });
   }
 
-  // Get price and aircraft from routes collection
-  const routeDoc = await mydb.collection("routes").findOne({
+  const routeDoc = await mydb.collection<Route>("routes").findOne({
     orig: schedule.orig,
     dest: schedule.dest,
   });
 
-  // Get airport details
-  const origDoc = await mydb.collection("airports").findOne({ code: schedule.orig });
-  const destDoc = await mydb.collection("airports").findOne({ code: schedule.dest });
+  const origDoc = await mydb.collection<Airport>("airports").findOne({ code: schedule.orig });
+  const destDoc = await mydb.collection<Airport>("airports").findOne({ code: schedule.dest });
 
-  // Generate unique booking reference
+  // Generate unique booking reference across all schedules
   let bookingRef = generateBookingRef();
-  while (await mydb.collection("bookings").findOne({ bookingRef })) {
+  while (await mydb.collection<Schedule>("schedules").findOne({ "bookings.bookingRef": bookingRef })) {
     bookingRef = generateBookingRef();
   }
 
-  // Create the booking document
-  const booking = {
+  // Embed booking within the schedule document
+  const bookingEntry: BookingEntry = {
     bookingRef: bookingRef,
-    scheduleId: schedule._id,
+    passenger: {
+      title: title || "",
+      firstname: firstname,
+      lastname: lastname,
+      email: email.toLowerCase(),
+    },
+    createdAt: new Date(),
+  };
+
+  await mydb.collection<Schedule>("schedules").updateOne(
+      { _id: schedule._id },
+      { $push: { bookings: bookingEntry } }
+  );
+
+  // Return full booking details for the confirmation page
+  const response = {
+    bookingRef: bookingRef,
     flightNo: schedule.flightNo,
     orig: schedule.orig,
     dest: schedule.dest,
@@ -65,25 +115,11 @@ export async function POST(request: Request) {
     destName: destDoc?.name ?? schedule.dest,
     origTz: origDoc?.tz ?? "Pacific/Auckland",
     destTz: destDoc?.tz ?? "Pacific/Auckland",
-    passenger: {
-      title: title || "",
-      firstname: firstname,
-      lastname: lastname,
-      email: email.toLowerCase(),
-    },
-    createdAt: new Date(),
+    passenger: bookingEntry.passenger,
+    createdAt: bookingEntry.createdAt,
   };
 
-  // Insert booking into bookings collection
-  const result = await mydb.collection("bookings").insertOne(booking);
-
-  // Push booking ID into schedule's bookings array
-  await mydb.collection("schedules").updateOne(
-    { _id: schedule._id },
-      { $push: { bookings: result.insertedId } as any }
-  );
-
-  return Response.json(booking, { status: 201 });
+  return Response.json(response, { status: 201 });
 }
 
 export async function GET(request: Request) {
@@ -95,11 +131,48 @@ export async function GET(request: Request) {
   }
 
   const mydb = await connectDB();
-  const bookings = await mydb
-    .collection("bookings")
-    .find({ "passenger.email": email.toLowerCase() })
-    .sort({ depDate: 1 })
-    .toArray();
+  const emailLower = email.toLowerCase();
 
-  return Response.json(bookings);
+  // Find all schedules that have a booking with this email
+  const schedules = await mydb.collection<Schedule>("schedules").find({
+    "bookings.passenger.email": emailLower,
+  }).toArray();
+
+  // Extract matching bookings and combine with schedule/route/airport details
+  const results = [];
+
+  for (const schedule of schedules) {
+    const routeDoc = await mydb.collection<Route>("routes").findOne({
+      orig: schedule.orig,
+      dest: schedule.dest,
+    });
+    const origDoc = await mydb.collection<Airport>("airports").findOne({ code: schedule.orig });
+    const destDoc = await mydb.collection<Airport>("airports").findOne({ code: schedule.dest });
+
+    for (const booking of schedule.bookings) {
+      if (booking.passenger.email === emailLower) {
+        results.push({
+          _id: schedule._id,
+          bookingRef: booking.bookingRef,
+          flightNo: schedule.flightNo,
+          orig: schedule.orig,
+          dest: schedule.dest,
+          depDate: schedule.depDate,
+          arrDate: schedule.arrDate,
+          price: routeDoc?.price ?? 0,
+          aircraft: routeDoc?.aircraft ?? "Unknown",
+          origName: origDoc?.name ?? schedule.orig,
+          destName: destDoc?.name ?? schedule.dest,
+          origTz: origDoc?.tz ?? "Pacific/Auckland",
+          destTz: destDoc?.tz ?? "Pacific/Auckland",
+          passenger: booking.passenger,
+          createdAt: booking.createdAt,
+        });
+      }
+    }
+  }
+
+  results.sort((a, b) => new Date(a.depDate).getTime() - new Date(b.depDate).getTime());
+
+  return Response.json(results);
 }
