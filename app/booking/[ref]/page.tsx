@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { formatDate } from "@/lib/formatDate";
 
 interface Booking {
   bookingRef: string;
@@ -25,20 +26,6 @@ interface Booking {
   createdAt: string;
 }
 
-function formatDate(dateStr: string, tz: string) {
-  const date = new Date(dateStr);
-  return new Intl.DateTimeFormat("en-NZ", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: tz,
-    timeZoneName: "short",
-  }).format(date);
-}
-
 export default function BookingPage() {
   const params = useParams();
   const router = useRouter();
@@ -59,16 +46,18 @@ export default function BookingPage() {
         .finally(() => setLoading(false));
   }, [ref]);
 
-  const handleCancel = async () => {
+  const handleCancel = () => {
     if (!confirm(`Cancel booking ${ref}? This cannot be undone.`)) return;
     setCancelling(true);
-    const res = await fetch(`/api/bookings/${ref}`, { method: "DELETE" });
-    if (res.ok) {
-      router.push("/bookings");
-    } else {
-      alert("Failed to cancel booking");
-      setCancelling(false);
-    }
+    fetch(`/api/bookings/${ref}`, { method: "DELETE" })
+        .then((res) => {
+          if (res.ok) {
+            router.push("/bookings");
+          } else {
+            alert("Failed to cancel booking");
+            setCancelling(false);
+          }
+        });
   };
 
   if (loading) return <p className="text-gray-500">Loading booking...</p>;
@@ -85,18 +74,18 @@ export default function BookingPage() {
           <div className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm font-semibold">
             Confirmed
           </div>
-          <h1 className="text-3xl font-bold text-gray-800">Booking Confirmation</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Booking Confirmation</h1>
         </div>
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-6">
           <div className="text-center border-b border-gray-100 pb-6">
             <p className="text-sm text-gray-500 mb-1">Booking Reference</p>
-            <p className="text-4xl font-mono font-bold text-sky-700 tracking-widest">
+            <p className="text-3xl sm:text-4xl font-mono font-bold text-sky-700 tracking-widest">
               {booking.bookingRef}
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <div>
               <h3 className="text-sm font-medium text-gray-500 mb-2">Flight</h3>
               <p className="font-bold text-lg text-gray-800">{booking.flightNo}</p>
@@ -109,13 +98,13 @@ export default function BookingPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-gray-100 pt-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 border-t border-gray-100 pt-6">
             <div>
               <h3 className="text-sm font-medium text-gray-500 mb-2">Departure</h3>
               <p className="font-bold text-gray-800">{booking.origName}</p>
               <p className="text-sm text-gray-500">{booking.orig}</p>
               <p className="text-sm text-gray-600 mt-1">
-                {formatDate(booking.depDate, booking.origTz)}
+                {formatDate(booking.depDate, booking.origTz, "long")}
               </p>
             </div>
             <div>
@@ -123,21 +112,21 @@ export default function BookingPage() {
               <p className="font-bold text-gray-800">{booking.destName}</p>
               <p className="text-sm text-gray-500">{booking.dest}</p>
               <p className="text-sm text-gray-600 mt-1">
-                {formatDate(booking.arrDate, booking.destTz)}
+                {formatDate(booking.arrDate, booking.destTz, "long")}
               </p>
             </div>
           </div>
 
-          <div className="border-t border-gray-100 pt-6 flex justify-between items-center">
+          <div className="border-t border-gray-100 pt-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
             <span className="text-gray-600 font-medium">Total Price</span>
             <span className="text-3xl font-bold text-sky-700">${booking.price} NZD</span>
           </div>
         </div>
 
-        <div className="flex gap-4">
+        <div className="flex flex-col sm:flex-row gap-4">
           <Link
               href="/search"
-              className="bg-sky-700 text-white font-semibold px-6 py-2 rounded-lg hover:bg-sky-800 transition-colors"
+              className="text-center bg-sky-700 text-white font-semibold px-6 py-2 rounded-lg hover:bg-sky-800 transition-colors"
           >
             Book Another Flight
           </Link>
