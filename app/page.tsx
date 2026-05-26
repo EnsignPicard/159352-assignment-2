@@ -26,8 +26,8 @@ export default function Home() {
         <div className="space-y-10">
             {/* Hero section */}
             <section className="bg-sky-700 text-white rounded-2xl p-10 text-center shadow-lg">
-                <img src="/logo.svg" alt="DairyFlat Air" className="h-20 w-20 mx-auto mb-4" />
-                <h1 className="text-4xl font-bold mb-3">Welcome to DairyFlat Air</h1>
+                <img src="/logo.svg" alt="Air DairyFlat" className="h-32 w-auto mx-auto mb-4" />
+                <h1 className="text-4xl font-bold mb-3">Welcome to Air DairyFlat</h1>
                 <p className="text-lg text-sky-100 mb-6">
                     Boutique air travel from {hub?.name ?? "Dairy Flat Airport"}, Auckland North Shore
                 </p>
