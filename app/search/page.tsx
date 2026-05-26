@@ -14,6 +14,11 @@ interface Airport {
   tz: string;
 }
 
+interface RouteInfo {
+  orig: string;
+  dest: string;
+}
+
 interface FlightEntry {
   id: string;
   flight_no: string;
@@ -35,6 +40,7 @@ interface SearchResult {
 export default function SearchPage() {
   const router = useRouter();
   const [airports, setAirports] = useState<Airport[]>([]);
+  const [routes, setRoutes] = useState<RouteInfo[]>([]);
   const [orig, setOrig] = useState("NZNE");
   const [dest, setDest] = useState("");
   const [date1, setDate1] = useState("2026-06-01");
@@ -50,12 +56,32 @@ export default function SearchPage() {
   useEffect(() => {
     fetch("/api/airports")
         .then((res) => res.json())
-        .then((data) => {
-          setAirports(data);
-          const other = data.find((a: Airport) => a.code !== "NZNE");
-          if (other) setDest(other.code);
+        .then(setAirports);
+
+    fetch("/api/routes")
+        .then((res) => res.json())
+        .then((data: RouteInfo[]) => {
+          setRoutes(data);
+          // Set default destination to first valid dest from NZNE
+          const firstRoute = data.find((r: RouteInfo) => r.orig === "NZNE");
+          if (firstRoute) setDest(firstRoute.dest);
         });
   }, []);
+
+  // Filter destinations to only show airports that have a route from selected origin
+  const validDestCodes = routes
+      .filter((r) => r.orig === orig)
+      .map((r) => r.dest);
+  const destOptions = airports.filter((a) => validDestCodes.includes(a.code));
+
+  // When origin changes, update dest if current dest is no longer valid
+  const handleOrigChange = (value: string) => {
+    setOrig(value);
+    const newValidDests = routes.filter((r) => r.orig === value).map((r) => r.dest);
+    if (!newValidDests.includes(dest)) {
+      setDest(newValidDests[0] || "");
+    }
+  };
 
   const handleSearch = (e: FormEvent) => {
     e.preventDefault();
@@ -112,9 +138,6 @@ export default function SearchPage() {
         });
   };
 
-  const destOptions = airports.filter((a) => a.code !== orig);
-  const availableFlights = results?.entries.filter((e) => e.seats_avail) ?? [];
-
   return (
       <div className="space-y-6">
         <h1 className="text-3xl font-bold text-gray-800">Search Flights</h1>
@@ -126,13 +149,7 @@ export default function SearchPage() {
                   label="From"
                   items={airports}
                   value={orig}
-                  onChange={(value) => {
-                    setOrig(value);
-                    if (value === dest) {
-                      const other = airports.find((a) => a.code !== value);
-                      if (other) setDest(other.code);
-                    }
-                  }}
+                  onChange={handleOrigChange}
               />
               <DropdownMenu
                   label="To"
@@ -145,7 +162,7 @@ export default function SearchPage() {
             </div>
             <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || !dest}
                 className="w-full sm:w-auto bg-sky-700 text-white font-semibold px-6 py-2 rounded-lg hover:bg-sky-800 transition-colors disabled:opacity-50"
             >
               {loading ? "Searching..." : "Search Flights"}
@@ -164,12 +181,12 @@ export default function SearchPage() {
                 </p>
               </div>
 
-              {availableFlights.length === 0 ? (
-                  <p className="text-gray-500">No available flights found for this route and date range.</p>
+              {results.entries.length === 0 ? (
+                  <p className="text-gray-500">No flights found for this route and date range.</p>
               ) : (
                   <div className="space-y-2">
                     <p className="text-sm text-gray-600 mb-2">Select a flight:</p>
-                    {availableFlights.map((entry) => (
+                    {results.entries.map((entry) => (
                         <FlightOption
                             key={entry.id}
                             entry={entry}

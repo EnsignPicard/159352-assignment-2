@@ -26,14 +26,18 @@ const FlightOption = ({ entry, tz, price, selectedId, onChange }: FlightOptionPr
     };
 
     const depDate = formatDate(entry.depDate, tz);
-    const seatsMsg = `${entry.seats_remaining} seat${entry.seats_remaining !== 1 ? "s" : ""} left`;
+    const seatsMsg = entry.seats_avail
+        ? `${entry.seats_remaining} seat${entry.seats_remaining !== 1 ? "s" : ""} left`
+        : "Full";
 
     return (
         <label
-            className={`block p-4 rounded-lg border cursor-pointer transition-colors ${
-                selectedId === entry.id
-                    ? "border-sky-500 bg-sky-50"
-                    : "border-gray-200 hover:border-sky-300 hover:bg-gray-50"
+            className={`block p-4 rounded-lg border transition-colors ${
+                !entry.seats_avail
+                    ? "border-gray-200 bg-gray-100 opacity-50 cursor-not-allowed"
+                    : selectedId === entry.id
+                        ? "border-sky-500 bg-sky-50 cursor-pointer"
+                        : "border-gray-200 hover:border-sky-300 hover:bg-gray-50 cursor-pointer"
             }`}
         >
             <div className="flex flex-col sm:flex-row sm:items-center gap-2">
@@ -42,6 +46,7 @@ const FlightOption = ({ entry, tz, price, selectedId, onChange }: FlightOptionPr
                     name="flightchoice"
                     value={entry.id}
                     checked={selectedId === entry.id}
+                    disabled={!entry.seats_avail}
                     onChange={handleChange}
                     className="accent-sky-700"
                 />
@@ -50,7 +55,9 @@ const FlightOption = ({ entry, tz, price, selectedId, onChange }: FlightOptionPr
                     <span className="text-sm text-gray-600 ml-2">{depDate}</span>
                 </div>
                 <div className="flex gap-3 items-center text-sm">
-                    <span className="text-green-600">{seatsMsg}</span>
+          <span className={entry.seats_avail ? "text-green-600" : "text-red-500"}>
+            {seatsMsg}
+          </span>
                     <span className="font-bold text-sky-700">${price}</span>
                 </div>
             </div>
