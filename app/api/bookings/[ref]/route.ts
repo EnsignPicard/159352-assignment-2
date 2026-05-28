@@ -1,46 +1,9 @@
-import { ObjectId } from "mongodb";
+/*
+gets booking details and cancels bookings
+*/
+
 import { connectDB } from "@/lib/mongodb";
-
-interface Passenger {
-  _id: ObjectId;
-  title: string;
-  firstname: string;
-  lastname: string;
-  email: string;
-}
-
-interface BookingEntry {
-  bookingRef: string;
-  passengerId: ObjectId;
-  createdAt: Date;
-}
-
-interface Schedule {
-  _id: ObjectId;
-  flightNo: string;
-  orig: string;
-  dest: string;
-  depDate: Date;
-  arrDate: Date;
-  seats: number;
-  bookings: BookingEntry[];
-}
-
-interface Route {
-  _id: ObjectId;
-  orig: string;
-  dest: string;
-  aircraft: string;
-  price: number;
-}
-
-interface Airport {
-  _id: ObjectId;
-  name: string;
-  code: string;
-  region: string;
-  tz: string;
-}
+import { Passenger, Schedule, Route, Airport } from "@/lib/types";
 
 export async function GET(
     request: Request,

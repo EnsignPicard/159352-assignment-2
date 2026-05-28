@@ -1,3 +1,8 @@
+/*
+component for our date chooser
+Passes selected date value back to parent through onChange.
+ */
+
 "use client";
 import { ChangeEvent } from "react";
 

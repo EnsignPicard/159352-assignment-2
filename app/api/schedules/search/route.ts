@@ -1,9 +1,14 @@
+/*
+searches schedules between selected airports and dates
+*/
+
 import { ObjectId } from "mongodb";
 import { connectDB } from "@/lib/mongodb";
+import { Schedule, Route, Airport } from "@/lib/types";
 
 async function getDate(params: URLSearchParams, key: string, defv: string, endOfDay: boolean) {
     const dateStr = params.get(key) || defv;
-    // Interpret dates as NZ time (UTC+12) so searches match local expectations
+    // we interpret dates as NZ time UTC+12 so searches match local
     const timeStr = endOfDay ? "T23:59:59+12:00" : "T00:00:00+12:00";
     return new Date(dateStr + timeStr);
 }
@@ -17,11 +22,11 @@ export async function GET(request: Request) {
 
     const mydb = await connectDB();
 
-    const origDoc = await mydb.collection("airports").findOne({ code: orig });
-    const destDoc = await mydb.collection("airports").findOne({ code: dest });
+    const origDoc = await mydb.collection<Airport>("airports").findOne({ code: orig });
+    const destDoc = await mydb.collection<Airport>("airports").findOne({ code: dest });
 
-    // Get price and aircraft from routes collection
-    const routeDoc = await mydb.collection("routes").findOne({ orig: orig, dest: dest });
+    // Get prices and aircraft from our routes collection
+    const routeDoc = await mydb.collection<Route>("routes").findOne({ orig: orig, dest: dest });
 
     const myquery = {
         orig: orig,
@@ -29,7 +34,7 @@ export async function GET(request: Request) {
         depDate: { $gte: dt1, $lte: dt2 },
     };
 
-    const scheds = await mydb.collection("schedules").find(myquery).toArray();
+    const scheds = await mydb.collection<Schedule>("schedules").find(myquery).toArray();
 
     const entries: {
         id: ObjectId;

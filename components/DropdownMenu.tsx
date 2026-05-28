@@ -1,3 +1,8 @@
+/*
+airport dropdown component
+handleChange sends selected airport code to parent
+*/
+
 "use client";
 import { ChangeEvent } from "react";
 

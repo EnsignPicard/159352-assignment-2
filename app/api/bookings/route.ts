@@ -1,50 +1,13 @@
+/*
+creates bookings and finds bookings by email
+*/
+
 import { ObjectId } from "mongodb";
 import { connectDB } from "@/lib/mongodb";
-
-interface Passenger {
-  _id: ObjectId;
-  title: string;
-  firstname: string;
-  lastname: string;
-  gender: string;
-  email: string;
-}
-
-interface BookingEntry {
-  bookingRef: string;
-  passengerId: ObjectId;
-  createdAt: Date;
-}
-
-interface Schedule {
-  _id: ObjectId;
-  flightNo: string;
-  orig: string;
-  dest: string;
-  depDate: Date;
-  arrDate: Date;
-  seats: number;
-  bookings: BookingEntry[];
-}
-
-interface Route {
-  _id: ObjectId;
-  orig: string;
-  dest: string;
-  aircraft: string;
-  price: number;
-}
-
-interface Airport {
-  _id: ObjectId;
-  name: string;
-  code: string;
-  region: string;
-  tz: string;
-}
+import { Passenger, BookingEntry, Schedule, Route, Airport } from "@/lib/types";
 
 function generateBookingRef(): string {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
   let ref = "";
   for (let i = 0; i < 6; i++) {
     ref += chars.charAt(Math.floor(Math.random() * chars.length));
@@ -153,10 +116,9 @@ export async function GET(request: Request) {
   }
 
   const mydb = await connectDB();
-  const emailLower = email.toLowerCase();
 
   // Find the passenger by email
-  const passenger = await mydb.collection<Passenger>("passengers").findOne({ email: emailLower });
+  const passenger = await mydb.collection<Passenger>("passengers").findOne({ email: email });
 
   if (!passenger) {
     return Response.json([]);
