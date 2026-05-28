@@ -17,6 +17,9 @@ export async function GET(request: Request) {
     const params = new URL(request.url).searchParams;
     const orig = params.get("orig");
     const dest = params.get("dest");
+    if (!orig || !dest) {
+        return Response.json({ error: "Origin and destination required" }, { status: 400 });
+    }
     const dt1 = await getDate(params, "date1", "2026-06-01", false);
     const dt2 = await getDate(params, "date2", "2026-12-31", true);
 
